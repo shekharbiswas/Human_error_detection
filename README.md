@@ -110,10 +110,8 @@
 4. Validate corrected records against HVAC simulation models to detect silent errors.
 5. Maintain audit trails for all corrections to support traceability.
 
-<br>
+Also possibilities include-
 
-## Next Steps (Optional)
-
-- Generate a cleaned version of the dataset with all errors flagged and handled.
-- Produce a visual profiling report including histograms, missingness heatmaps, and correlation matrices.
-- Deliver a quality scorecard per column to monitor ongoing data health.
+- Cleaned version of the dataset with all errors flagged and handled.
+- Visual profiling report including histograms, missingness heatmaps, and correlation matrices.
+- Scorecard per column to monitor ongoing data health.
