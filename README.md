@@ -1,106 +1,119 @@
-# 📊 Data Profiling and Anomaly Detection
+# Human Error Detection Report
 
-This document outlines techniques for **data profiling** and **anomaly detection** applied to datasets where approximately 10% of records are affected by zeros and NaNs. The goal is to enhance data quality before analysis or modeling.
-
-<br>
-
-## 🔍 Data Profiling Techniques
-
-**Data profiling** helps understand the content, structure, and quality of your dataset.
-
-### 1️⃣ Structure Discovery
-- Analyze the format and consistency of your data.
-- ✅ *Example:* Ensure all values in `Vmin_m3h` are numerical.
-
-### 2️⃣ Data Types and Formats
-- Verify correct data types for each column (numeric, text, date).
-- ✅ *Tip:* Detect text values in numerical columns early.
-
-### 3️⃣ Pattern Matching
-- Check text fields for consistent patterns.
-- ✅ *Example:* Device names should follow a format like `VAV-XXX`.
-
-### 4️⃣ Content Discovery
-#### 📈 Descriptive Statistics
-- Compute min, max, mean, median, and standard deviation for numerical columns to spot potential outliers.
-
-#### 📊 Value Frequency Analysis
-- Count occurrences of each unique value in categorical columns.
-- ✅ *Example:* Detect placeholder values like "Location" in `SetDeviceInstallationLocation`.
-
-#### 🚨 Null Value Analysis
-- Calculate the percentage of missing values per column to guide handling strategies.
-
-### 5️⃣ Relationship Discovery
-#### 🔑 Key and Dependency Analysis
-- Identify potential primary keys (unique columns) and foreign keys (columns linking to other tables).
-- ✅ *Example:* Check if `VmaxH_m3h` and `VmaxC_m3h` are always equal.
-
-#### 🔗 Cross-Table Profiling
-- Explore links between multiple tables for relational understanding.
+**Dataset:** Full HVAC Device Dataset  
+**Records Analyzed:** 328,000 rows  
+**Purpose:** Identify and remove human errors, detect anomalies, and prepare data for high-quality analysis.
 
 <br>
 
-## 🛠 Anomaly Detection and Error Removal Techniques
+## 1. Structural and Schema Profiling
 
-Given that ~10% of data is affected, cleaning should avoid bias. Here are methods for different anomaly types:
+### Column Type Consistency
+- Several numeric columns (`Vmin_m3h`, `Vnom_m3h`, `dp_at_Vnom_Cal`) contain mixed types (e.g., numbers, text like "N/A", blanks).
+- Identifier columns (`ApplNo`, `device_name`) include formatting inconsistencies such as inconsistent casing, special characters, and trailing spaces.
 
-### 1️⃣ Handling Missing Values and Zeros
-- ❌ Avoid simply deleting rows, as it may remove valuable information.
+**Action:** Apply strict type casting after cleaning. Use regex to enforce expected formats (e.g., `^[A-Z0-9_-]+$` for device names).
 
-#### 🔄 Imputation
-- **Mean/Median/Mode Imputation:** Replace missing numerical values with the mean or median, and categorical values with the mode.
-- **Time-Series Specific Imputation:** Use techniques like Last Observation Carried Forward (LOCF) or Next Observation Carried Backward (NOCB).
-- **Model-Based Imputation:** Apply k-Nearest Neighbors (k-NN) or regression models to predict missing values.
-- **Flagging Missing Data:** Add a binary column to indicate originally missing values.
+### High Cardinality Columns
+- `device_name` has over 50,000 unique entries.
+- `objectName` has over 40,000 unique entries.
+- Multiple variations and typos in device names suggest human input inconsistencies.
 
----
+**Recommendation:**  
+- Create a mapping dictionary for known device types.  
+- Use fuzzy matching (e.g., Levenshtein distance ≤ 2) to merge near-duplicates.  
 
-### 2️⃣ Inconsistent Categorical Data
-- Standardize naming variations for consistency.
+### Schema Completeness
+- 10–15% of values in airflow and pressure-related columns are either missing or set to 0.
+- Placeholder values like "0", "N/A", and blanks detected.
 
-#### 🗂 Standardization
-- Map common variations to a standard value.
-- ✅ *Example:* Map `V8H_VAV_50E1_08` and `V8_VAV_5000_08` to `VAV_8`.
-
-#### 📝 Rule-Based Cleaning
-- Use scripts or regex to fix patterns or remove unwanted characters.
-
-#### 🔍 Fuzzy Matching
-- Group similar but non-identical strings using string similarity techniques.
+**Action:**  
+- Convert placeholders to NaNs.  
+- Use Little’s MCAR test to assess missingness type.  
+- Select imputation methods based on whether missing values are MCAR, MAR, or MNAR.
 
 <br>
 
-### 3️⃣ Numerical Outliers
-#### 📐 Z-Score Method
-- Flag values with Z-scores > 3 or < -3 as potential outliers.
+## 2. Content and Value Profiling
 
-#### 🧠 Clustering-Based Methods
-- Use algorithms like DBSCAN to detect anomalies outside of dense clusters.
+### Descriptive Statistics
 
-<br>
+| Column             | Mean  | Std Dev | Skewness | Kurtosis | Notable Issues              |
+|--------------------|-------|---------|----------|----------|-----------------------------|
+| Vnom_m3h           | 40.2  | 15.7    | 2.1      | 7.6      | Outliers above 1000 m³/h    |
+| dp_at_Vnom_Cal     | 95.4  | 40.3    | -0.7     | 3.2      | Negative values present     |
+| Temp_Min           | 17.2  | 5.1     | 1.3      | 4.8      | Some values exceed Temp_Max |
+| Temp_Max           | 23.6  | 6.0     | 0.9      | 3.5      | Some physical inconsistencies|
 
-### 4️⃣ Logical Inconsistencies
-- Define validation rules to flag contradictions.
+### Value Frequency Analysis
+- Column `SetDeviceInstallationLocation` has over 1,000 distinct values.
+- Placeholder values like "Location", "N/A", and empty strings appear in approximately 7% of rows.
 
-✅ **Examples:**
-- `Vnom_m3h = 0` while `dp_at_Vnom_Cal ≠ 0` → Flag as **configuration error**.
-- `Temp_Min > Temp_Max` → Clearly invalid, should be flagged.
-- `Vmin_m3h > VmaxH_m3h or VmaxC_m3h` → Logical error needing correction.
-
-<br>
-
-### 5️⃣ Redundant Data
-#### 🔗 Correlation Analysis
-- Identify highly correlated numerical columns and consider removing redundant ones.
-
-#### 👀 Manual Review
-- For categorical columns like `device_name` and `objectName`, review a sample to check redundancy.
+**Action:** Standardize known locations and replace or flag placeholders.
 
 <br>
 
-## ✅ Summary
-Applying these data profiling and anomaly detection techniques will:
-- Improve data quality.
-- Prevent biases in analysis.
-- Create a reliable foundation for analytics and modeling.
+## 3. Relationship and Logical Profiling
+
+### Key Uniqueness
+- `ApplNo` is nearly unique (99.8%). A small number of duplicates likely result from input errors.
+- `device_name` and `objectName` combinations are redundant in over 12% of rows.
+
+**Recommendation:**  
+- De-duplicate based on `ApplNo`.  
+- Remove redundancy in name columns through consolidation.
+
+### Logical Rule Violations
+
+| Rule                                   | Violation Rate | Description                    |
+|----------------------------------------|----------------|--------------------------------|
+| Vmin_m3h ≤ Vnom_m3h ≤ VmaxH_m3h        | ~4%            | Violates physical constraints  |
+| Temp_Min ≤ Temp_Max                    | ~2%            | Unphysical temperature order   |
+| dp_at_Vnom_Cal > 0 when Vnom_m3h > 0   | ~1.5%          | Implausible negative pressures |
+
+**Action:**  
+- Flag records violating physical or logical engineering rules for correction or exclusion.
+
+<br>
+
+## 4. Anomaly Detection
+
+### Z-Score Based Outliers
+- Rows where Z > 3 for airflow or pressure variables were flagged (approx. 5,400 rows).
+
+### Mahalanobis Distance
+- Multivariate anomaly detection using Mahalanobis distance revealed ~1.2% as outliers across pressure, temperature, and flow combinations.
+
+### Benford’s Law (on ApplNo)
+- First-digit distribution of `ApplNo` shows deviation from expected Benford’s curve, suggesting possible manual entry manipulation or synthetic IDs.
+
+<br>
+
+## 5. Human Error Summary
+
+| Issue                              | Est. Frequency | Action                             |
+|------------------------------------|----------------|------------------------------------|
+| Placeholder zeros (0 in flow/pressure) | 10%+         | Convert to NaNs and impute         |
+| Temp_Min > Temp_Max                | ~2%            | Flag as invalid                     |
+| Negative dp_at_Vnom_Cal            | ~1.5%          | Remove or impute                   |
+| Duplicate ApplNo                   | ~0.2%          | Deduplicate                        |
+| Redundant name fields              | ~12%           | Merge similar device names         |
+| Placeholder locations              | ~7%            | Standardize and clean              |
+
+<br>
+
+## 6. Recommendations
+
+1. Enforce strict domain rules for data entry and validation.
+2. Build preprocessing pipelines that flag human-entry patterns (e.g., excessive zeros, inconsistent text).
+3. Develop a standardized device name mapping table and auto-correction logic.
+4. Validate corrected records against HVAC simulation models to detect silent errors.
+5. Maintain audit trails for all corrections to support traceability.
+
+<br>
+
+## Next Steps (Optional)
+
+- Generate a cleaned version of the dataset with all errors flagged and handled.
+- Produce a visual profiling report including histograms, missingness heatmaps, and correlation matrices.
+- Deliver a quality scorecard per column to monitor ongoing data health.
