@@ -1,4 +1,4 @@
-# Human Error Detection Report
+# Human Error Detection
 
 **Dataset:** Full HVAC Device Dataset  
 **Records Analyzed:** 328,000 rows  
